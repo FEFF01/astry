@@ -20,7 +20,7 @@ import {
     IPattern, Token,
     IPosition, ISourceLocation,
     UseKey
-} from "./scanner"
+} from "astry"
 
 const {
     FINISH, // 匹配一个字段的结束（每一条匹配路径，如果最终没有这个标记会在构造时自动添加）
