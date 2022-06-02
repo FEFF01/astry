@@ -5,6 +5,7 @@
 
 > `npm install astry` -> `npm i && npm run dev` -> `http://localhost:8080/` -> `F12`
 
+> [Test demo](https://feff01.github.io/astry/dist/)
 
 #### 利用 `astry` 构造 `AST Parser` 的简单例子：
 >* [json-grammar.ts](./js/json-grammar.ts)

@@ -1,11 +1,17 @@
 {
   "name": "astry",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A simple general-purpose lexical or syntactic analyzer",
   "main": "./dist/js/scanner.js",
   "private": false,
   "license": "MIT",
-  "keywords": [],
+  "keywords": [
+    "ast",
+    "tokenizer",
+    "analyzer",
+    "parser",
+    "parser generator"
+  ],
   "repository": {
     "type": "git",
     "url": "git://github.com/FEFF01/astry"
