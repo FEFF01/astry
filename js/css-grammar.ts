@@ -223,13 +223,10 @@ const CSSSupportsRule = [
     "}", UNWRAP_ALL
 ];
 
-
-
 export {
     MATCH_CSS_ATTRIBUTE_VALUE,
     MATCH_CSS_ATTRIBUTE
 }
-
 export default <IPattern>[
     [CLEAR_COMMENT],
     [NO_COLLECT, [["", MATCH_WHITE_SPACE_CHARACHER]]],

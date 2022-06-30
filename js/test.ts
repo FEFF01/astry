@@ -1,6 +1,6 @@
+// \@ts-nocheck
 
-
-import { Scanner } from "./scanner"
+import { Scanner, OPERATIONS } from "./scanner"
 
 import CSSGrammar from "./css-grammar";
 
@@ -8,7 +8,26 @@ import HTMLGrammar from "./html-grammar";
 
 import JSONGrammar from "./json-grammar";
 
+
+const {
+    FINISH,
+    WRAP, UNWRAP, UNWRAP_ALL,
+    OPTION,
+    SPLIT,
+    NO_COLLECT, NO_CAPTURE,
+    MARK_AS_ROOT, FORK_IN_PARENT, FORK_IN_ROOT,
+    END, END_ON_LEFT,
+    useKey,
+    node, key, pick, hook, pipe, prev, merge,
+
+    MATCH_BEGIN,
+    MATCH_END,
+    MATCH_EOF,
+    MERGE_ALL_TOKENS
+} = OPERATIONS;
+
 global.Scanner = Scanner;
+
 
 const cssScanner = global.cssScanner = new Scanner(CSSGrammar, { useEscape: true });
 
@@ -134,4 +153,32 @@ true && console.log(
     "KEY3":334
 }
 `)
-)
+);
+
+
+const test = new Scanner([
+    [
+        [
+            "||",
+            "|",
+        ],
+        NO_COLLECT,
+        OPTION,
+        [
+            [
+                [` `, `\t`, `\n`],
+                OPTION,
+                [
+                    [
+                        [` `, `\t`, `\n`],
+                        FORK_IN_PARENT
+                    ]
+                ]
+            ]
+        ]
+
+    ]
+], { useEscape: true });
+
+console.log(test.scan("|| |  |||||").tokens);
+

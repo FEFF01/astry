@@ -29,7 +29,7 @@ interface ISourceLocation {
 declare type IPattern = Hook | string | String | Array<string | Array<IPattern>>;
 declare abstract class Hook {
     mode: HOOK_MODE;
-    abstract use(env: IScanEnv, start: IPosition, end: IPosition): any;
+    abstract use(env: IScanEnv, start: IPosition, end: IPosition, begin: IPosition): any;
 }
 declare class Node extends Hook {
     type: string;
@@ -73,14 +73,14 @@ declare class Pick extends Pipe {
     mode: HOOK_MODE;
 }
 declare class Call extends Hook {
-    use: (env: IScanEnv, start: IPosition, end: IPosition) => any;
+    use: (env: IScanEnv, start: IPosition, end: IPosition, begin: IPosition) => any;
     mode: HOOK_MODE;
-    constructor(use: (env: IScanEnv, start: IPosition, end: IPosition) => any, mode: HOOK_MODE);
+    constructor(use: (env: IScanEnv, start: IPosition, end: IPosition, begin: IPosition) => any, mode: HOOK_MODE);
 }
 declare namespace OPERATIONS {
     const FINISH: String, WRAP: String, UNWRAP: String, UNWRAP_ALL: String, OPTION: String, SPLIT: String, NO_COLLECT: String, NO_CAPTURE: String, MARK_AS_ROOT: String, FORK_IN_PARENT: String, FORK_IN_ROOT: String, END: String, END_ON_LEFT: String;
     const useKey: (key: string | Token, value: any) => UseKey;
-    const node: (val: string, map?: (tokens: Array<any>, env: IScanEnv, start: IPosition, end: IPosition) => any, useContent?: boolean, mode?: HOOK_MODE) => Node, key: (val: string, map?: (token: any, env: IScanEnv, start: IPosition, end: IPosition) => any) => Key, pick: (map?: (token: any, env: IScanEnv, start: IPosition, end: IPosition) => any) => Pick, hook: (fn: (env: IScanEnv, start: IPosition, end: IPosition) => void, mode?: HOOK_MODE) => Call, pipe: (pipe?: (token: any, env: IScanEnv, start: IPosition, end: IPosition) => any) => Pipe, prev: (match?: (token: Token | any, env: IScanEnv) => number | boolean, onlyToken?: boolean) => Prev, merge: (map?: (tokens: Array<any>, env: IScanEnv, start: IPosition, end: IPosition) => any) => Merge;
+    const node: (val: string, map?: (tokens: Array<any>, env: IScanEnv, start: IPosition, end: IPosition) => any, useContent?: boolean, mode?: HOOK_MODE) => Node, key: (val: string, map?: (token: any, env: IScanEnv, start: IPosition, end: IPosition) => any) => Key, pick: (map?: (token: any, env: IScanEnv, start: IPosition, end: IPosition) => any) => Pick, hook: (fn: (env: IScanEnv, start: IPosition, end: IPosition, begin: IPosition) => void, mode?: HOOK_MODE) => Call, pipe: (pipe?: (token: any, env: IScanEnv, start: IPosition, end: IPosition) => any) => Pipe, prev: (match?: (token: Token | any, env: IScanEnv) => number | boolean, onlyToken?: boolean) => Prev, merge: (map?: (tokens: Array<any>, env: IScanEnv, start: IPosition, end: IPosition) => any) => Merge;
     const MATCH_BEGIN = "", MATCH_END = "", MATCH_EOF: IPattern, MERGE_ALL_TOKENS: Merge, UNFOLD: Call;
 }
 declare class Scanner {

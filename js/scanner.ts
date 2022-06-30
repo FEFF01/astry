@@ -49,10 +49,34 @@ type IPattern = Hook
         | Array<IPattern>    //  其他内容需要被数组包裹
     > // Array 代表 Pattern 内的分支 Pattern
 
+
+enum SCOPE {
+    NODE, START, BEGIN, CURSOR, BACK_POINT, USE_FOLD
+}
+
+
+interface IScope {
+    [SCOPE.NODE]: any,
+    [SCOPE.START]: IPosition,
+    [SCOPE.BEGIN]: IPosition,
+    [SCOPE.CURSOR]: IPosition,
+    [SCOPE.BACK_POINT]: number,
+    [SCOPE.USE_FOLD]: boolean
+}
+
+type ISlices = Array<[IPosition, Hook[]]>;
+
+type IResolveState = [any, IPosition, ISlices, number];
+
+
+
 abstract class Hook {
     mode: HOOK_MODE = HOOK_MODE.RESOLVE;
-    abstract use(env: IScanEnv, start: IPosition, end: IPosition): any
+    abstract use(env: IScanEnv, start: IPosition, end: IPosition, begin: IPosition): any
 }
+
+
+
 
 class Node extends Hook {
     static NODE_MAP = {};
@@ -179,7 +203,7 @@ class Pick extends Pipe {
 
 class Call extends Hook {
     constructor(
-        public use: (env: IScanEnv, start: IPosition, end: IPosition) => any,
+        public use: (env: IScanEnv, start: IPosition, end: IPosition, begin: IPosition) => any,
         public mode: HOOK_MODE
     ) {
         super();
@@ -238,7 +262,7 @@ namespace OPERATIONS {
         pick = function (map?: (token: any, env: IScanEnv, start: IPosition, end: IPosition) => any) {
             return new Pick(map || function () { });
         },
-        hook = function (fn: (env: IScanEnv, start: IPosition, end: IPosition) => void, mode = HOOK_MODE.RESOLVE) {
+        hook = function (fn: (env: IScanEnv, start: IPosition, end: IPosition, begin: IPosition) => void, mode = HOOK_MODE.RESOLVE) {
             return new Call(fn, mode);
         },
         pipe = function (pipe?: (token: any, env: IScanEnv, start: IPosition, end: IPosition) => any) {
@@ -312,23 +336,6 @@ namespace MARKS {
     ]);
 }
 
-enum SCOPE {
-    NODE, START, CURSOR, BACK_POINT, USE_FOLD
-}
-
-interface IScope {
-    [SCOPE.NODE]: any,
-    [SCOPE.START]: IPosition,
-    [SCOPE.CURSOR]: IPosition,
-    [SCOPE.BACK_POINT]: number,
-    [SCOPE.USE_FOLD]: boolean
-}
-
-type ISlices = Array<[IPosition, Hook[]]>;
-
-type IResolveState = [any, IPosition, ISlices, number];
-
-
 class Scanner {
 
     private scanTree: Record<string, any>;
@@ -361,7 +368,7 @@ class Scanner {
         let matchPool: Array<[any, ISlices]> = [];
         let scopeStack: Array<IScope> = [[
             this.scanTree,
-            getPosition(), getPosition(),
+            getPosition(), getPosition(), getPosition(),
             0, false
         ]];
         let resolveState: IResolveState;
@@ -449,6 +456,7 @@ class Scanner {
                 char = "";
                 isBegin = false;
             }
+            
             if (match(char)) {
                 return env;
             }
@@ -463,22 +471,25 @@ class Scanner {
 
         function match(key: string, noResolve?: boolean) {
             const pool = matchPool;
+            const scopeNode = scopeStack[0][SCOPE.NODE];
 
             matchPool = [];
 
             let node: any;
             let slices: ISlices;
             let hasBranch: boolean;
+            let hasScopeNode = false;
 
             while (true) {
                 if (pool.length) {
                     [node, slices] = pool.shift();
-                } else if (!resolveState && node !== scopeStack[0][SCOPE.NODE]) {
-                    node = scopeStack[0][SCOPE.NODE];
+                } else if (!resolveState && !hasScopeNode) {
+                    node = scopeNode;
                     slices = null;
                 } else {
                     break;
                 }
+                hasScopeNode = hasScopeNode || (node === scopeNode);
                 hasBranch = false;
 
                 resolveState = walk(node, slices)
@@ -590,13 +601,14 @@ class Scanner {
             if (type === MARKS.UNWRAP) {
                 return unwrap(node, slices);
             } else {
-                let res = useHook(node[MARKS.BUBBING_HOOKS], startPos, getPosition());
+                const cursorPos = getPosition();
+                const res = useHook(node[MARKS.BUBBING_HOOKS], startPos, cursorPos);
                 if (res < 0) {
                     env.tokens.length = len;
                     return res + 1;
                 }
                 if (type !== MARKS.END_ON_LEFT) {
-                    scope[SCOPE.CURSOR] = getPosition();
+                    scope[SCOPE.CURSOR] = cursorPos;
                 } else {
                     env.offset = startPos.offset;
                     env.line = startPos.line;
@@ -613,11 +625,12 @@ class Scanner {
         function wrap(node: any, slices: ISlices, use_collect?: boolean) {
             const { useFold, tokens } = env;
             const backPoint = tokens.length;
-            let startPos = slices[0][0];
-
+            const startPos = slices[0][0];
+            const beginPos = getPosition();
+            const cursorPos = getPosition();
             scopeStack.unshift([
                 node,
-                startPos, getPosition(),
+                startPos, beginPos, cursorPos,
                 backPoint, useFold
             ]);
 
@@ -633,7 +646,7 @@ class Scanner {
             ) : 0;
 
             if (backSteps >= 0) {
-                backSteps = useHook(node[MARKS.BUBBING_HOOKS], startPos, getPosition());
+                backSteps = useHook(node[MARKS.BUBBING_HOOKS], startPos, cursorPos, beginPos);
                 if (backSteps >= 0) {
                     node = node[MARKS.RESOLVE];
                     return node ? finallize(node, slices, false) : backSteps;
@@ -657,7 +670,8 @@ class Scanner {
             let backSteps = useHook(
                 node[MARKS.BUBBING_HOOKS],
                 scope[SCOPE.START],
-                getPosition()
+                getPosition(),
+                scope[SCOPE.BEGIN],
             );
             if (backSteps >= 0) {
                 node = node[MARKS.RESOLVE];
@@ -682,9 +696,9 @@ class Scanner {
             return backSteps + 1;
         }
 
-        function useHook(hooks: Array<Hook>, start: IPosition, end: IPosition): number {
+        function useHook(hooks: Array<Hook>, start: IPosition, end: IPosition, begin?: IPosition): number {
             for (const hook of hooks) {
-                let res = hook.use(env, start, end);
+                let res = hook.use(env, start, end, begin);
                 if (res < 0) {
                     return res;
                 }
@@ -867,7 +881,7 @@ function buildRule(
                             if (parent === scopeChain[cursor]) {
                                 cursor += 1;
                             }
-                        } while (--(<number>d) >= 0)
+                        } while (--(<number>d) > 0)
                     }
                 }
                 if (node[MARKS.ROLL] !== parent) {
@@ -971,9 +985,7 @@ function buildRule(
 
     }
     function setHook(hook: Hook) {
-        if (hook === window.test) {
-            debugger;
-        }
+
         if (!hook) {
             hook = new Call(function () { }, HOOK_MODE.CAPTURE);
             for (let i = 0; i < nodes.length; i += 1) {
@@ -995,14 +1007,16 @@ function buildRule(
         function addHook(index: number) {
             const node = nodes[index];
             const type = node[MARKS.TYPE];
+            // 实际使用中不会刻意用到共用钩子的情况，统一使之不共用可降低声明成本和更符合声明直觉
+            const h = Object.create(hook);
             if (hook.mode !== HOOK_MODE.PIPE && MARKS.RESOLVE_TYPE_SET.has(type)) {
-                node[MARKS.BUBBING_HOOKS].push(hook);
+                node[MARKS.BUBBING_HOOKS].push(h);
             } else {
                 (
                     node[MARKS.CAPTURING_HOOKS]
                     || (node[MARKS.CAPTURING_HOOKS] = [])
-                ).push(hook);
-                captureTable[index].push(hook);
+                ).push(h);
+                captureTable[index].push(h);
             }
         }
     }
